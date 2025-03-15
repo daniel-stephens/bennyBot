@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benny - Speak</title>
+    <style>
+        /* General Page Styling */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #001F3F; /* Deep Blue */
+            color: #FFFFFF; /* White text */
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Container Box */
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            width: 500px;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        /* Benny's Image */
+        .benny-img {
+            width: 220px;
+            max-width: 100%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+        }
+
+        /* Tap to Speak Button */
+        .speak-button {
+            margin-top: 20px;
+            padding: 14px 28px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #E87722, #FF5733);
+            border: none;
+            cursor: pointer;
+            border-radius: 12px;
+            color: white;
+            transition: 0.3s ease-in-out;
+        }
+
+        .speak-button:hover {
+            background: linear-gradient(135deg, #FF8C42, #FF5733);
+            transform: scale(1.05);
+        }
+
+        /* Status Message */
+        #status {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #FFD700; /* Gold */
+        }
+
+        /* Scrollable Transcription Box */
+        .transcription-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            height: 150px;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
+            font-size: 16px;
+            font-weight: bold;
+            color: #87CEFA; /* Light Blue */
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        /* Loading Dots Animation */
+        .loading {
+            display: inline-block;
+            margin-left: 5px;
+            font-weight: bold;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hey! I am Benny 🐻</h1>
+        <img class="benny-img" src="{{ url_for('static', filename='benny.jpeg') }}" alt="Benny the Bear">
+        <br>
+        <button class="speak-button" onclick="startListening()">🎤 Tap to Speak</button>
+        <p id="status">Waiting...</p>
+
+        <!-- Scrollable Box for Transcriptions -->
+        <div class="transcription-box" id="transcription"></div>
+    </div>
+
+    <script>
+        let eventSource = null;
+
+        function startListening() {
+            document.getElementById("status").innerHTML = "Starting <span class='loading'>...</span>";
+
+            // ✅ Clear the transcription box at the start of each new question
+            document.getElementById("transcription").innerText = "";
+
+            // Call Flask API to start listening
+            fetch("/question/");
+
+            // Connect to the stream for real-time updates
+            eventSource = new EventSource("/stream/");
+            eventSource.onmessage = function(event) {
+                if (event.data.startsWith("Question: ")) {
+                    let transcribedText = event.data.replace("Question: ", "");
+
+                    // ✅ Display only the most recent question (clear old ones)
+                    document.getElementById("transcription").innerText = transcribedText;
+                } else {
+                    document.getElementById("status").innerText = event.data;
+                }
+
+                if (event.data === "Session Ended") {
+                    eventSource.close();  // Stop listening
+                }
+            };
+        }
+    </script>
+</body>
+</html>
