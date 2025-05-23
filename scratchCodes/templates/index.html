@@ -134,7 +134,9 @@
 <body>
     <div class="container">
         <h1>Hey! I am Benny 🐻</h1>
-        <img class="benny-img" src="{{ url_for('static', filename='benny.jpeg') }}" alt="Benny the Bear">
+        {% load static %}
+        <img class="benny-img" src="{% static 'benny.jpeg' %}" alt="Benny the Bear">
+
         <br>
         <button class="speak-button" onclick="startListening()">🎤 Tap to Speak</button>
         <p id="status">Waiting...</p>
