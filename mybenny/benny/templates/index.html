@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benny - Speak</title>
+    <style>
+        /* General Page Styling */
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #001F3F; /* Deep Blue */
+            color: #FFFFFF; /* White text */
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* Container Box */
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            width: 500px;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        /* Benny's Image */
+        .benny-img {
+            width: 220px;
+            max-width: 100%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+        }
+
+        /* Tap to Speak Button */
+        .speak-button {
+            margin-top: 20px;
+            padding: 14px 28px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #E87722, #FF5733);
+            border: none;
+            cursor: pointer;
+            border-radius: 12px;
+            color: white;
+            transition: 0.3s ease-in-out;
+        }
+
+        .speak-button:hover {
+            background: linear-gradient(135deg, #FF8C42, #FF5733);
+            transform: scale(1.05);
+        }
+
+        /* Status Message */
+        #status {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #FFD700; /* Gold */
+        }
+
+        /* Scrollable Transcription Box */
+        .transcription-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            height: 150px;
+            max-height: 150px;
+            overflow-y: auto;
+            text-align: left;
+            font-size: 16px;
+            font-weight: bold;
+            color: #87CEFA; /* Light Blue */
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        /* Loading Dots Animation */
+        .loading {
+            display: inline-block;
+            margin-left: 5px;
+            font-weight: bold;
+            animation: blink 1.5s infinite;
+        }
+        /* Waiting (default state) */
+        .speak-button.waiting {
+            background: linear-gradient(135deg, #E87722, #FF5733);
+        }
+
+        /* Listening (green) */
+        .speak-button.listening {
+            background: linear-gradient(135deg, #28a745, #218838);
+        }
+
+        /* Speaking (red) */
+        .speak-button.speaking {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+        /* Speaking (red) */
+        .speak-button.transcribing {
+            background: linear-gradient(135deg, #e79519, #8f611b);
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        /* Talking Animation */
+        .benny-img.talking {
+        animation: talk-bounce 0.35s infinite alternate;
+        box-shadow: 0 0 20px #ff6f61, 0 0 30px #ff6f61 inset; /* Glow effect */
+        }
+
+        @keyframes talk-bounce {
+            0% { transform: scale(1) rotate(0deg); }
+            100% { transform: scale(1.03) rotate(1deg); }
+        }
+            
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hey! I am Benny 🐻</h1>
+        {% load static %}
+        <img class="benny-img" src="{% static 'benny.jpeg' %}" alt="Benny the Bear">
+
+        <br>
+        <button class="speak-button" onclick="startListening()">🎤 Tap to Speak</button>
+        <p id="status">Waiting...</p>
+
+        <!-- Scrollable Box for Transcriptions -->
+        <div class="transcription-box" id="transcription"></div>
+    </div>
+
+    <script>
+       let eventSource;
+
+function startListening() {
+    const button = document.querySelector('.speak-button');
+    const status = document.getElementById("status");
+    const transcriptionBox = document.getElementById("transcription");
+
+    // Set initial "waiting" state
+    status.innerHTML = "Starting <span class='loading'>...</span>";
+    transcriptionBox.innerText = "";
+    button.classList.remove("listening", "speaking", "transcribing");
+    button.classList.add("waiting");
+
+    // Call Flask to start listening
+    fetch("/question/");
+
+    // ✅ Initialize the EventSource *before* assigning event handlers
+    eventSource = new EventSource("/stream/");
+
+    eventSource.onmessage = function(event) {
+        const msg = event.data;
+
+        // 🔁 Redirect trigger
+        if (msg.startsWith("redirect:")) {
+            const targetUrl = msg.replace("redirect:", "").trim();
+            eventSource.close();
+            window.location.href = targetUrl;
+            return;
+        }
+
+        // 🟢 Listening
+        if (msg.includes("Listening")) {
+            status.innerText = "Listening...";
+            button.classList.remove("waiting", "speaking", "transcribing");
+            button.classList.add("listening");
+            document.querySelector(".benny-img").classList.remove("talking");
+
+            return;
+        }
+
+        // 🟣 Transcribing
+        if (msg.includes("Transcribing")) {
+            status.innerText = "Transcribing...";
+            button.classList.remove("waiting", "listening", "speaking");
+            button.classList.add("transcribing");
+            return;
+        }
+
+        // 🔴 Speaking
+        if (msg.includes("Speaking")) {
+            status.innerText = "Speaking...";
+            button.classList.remove("waiting", "listening", "transcribing");
+            button.classList.add("speaking");
+
+            // 🐻 Add talking effect to Benny
+            document.querySelector(".benny-img").classList.add("talking");
+            return;
+        }
+
+        
+        
+
+        // 💬 Transcribed text
+        if (msg.startsWith("Question: ")) {
+            const transcribedText = msg.replace("Question: ", "");
+            transcriptionBox.innerText = transcribedText;
+            return;
+        }
+        // 🟠 Fallback status
+        status.innerText = msg;
+    };
+}
+
+
+    </script>
+</body>
+</html>

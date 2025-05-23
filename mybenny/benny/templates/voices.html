@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benny</title>
+    {% load static %}
+    <style>
+    
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Arial', sans-serif;
+        }
+    
+        body {
+            position: relative;
+            overflow: hidden;
+        }
+    
+        /* Background dim layer using pseudo-element */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("{% static 'images/morganbridge.jpeg' %}") no-repeat center center fixed;
+            background-size: cover;
+            filter: brightness(40%); /* Dims the background */
+            z-index: -1;
+        }
+    
+        .overlay {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+            text-align: center;
+            color: #FFFFFF; /* White text */
+        }
+    
+        .container {
+            background-color: #063463;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            width: 500px;
+            max-width: 90%;
+            text-align: center;
+            z-index: 1;
+        }
+    
+        .benny-img {
+            width: 220px;
+            max-width: 100%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+        }
+    
+        .speak-button {
+            margin-top: 20px;
+            padding: 14px 28px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #E87722, #FF5733);
+            border: none;
+            cursor: pointer;
+            border-radius: 12px;
+            color: white;
+            transition: 0.3s ease-in-out;
+        }
+    
+        .speak-button:hover {
+            background: linear-gradient(135deg, #FF8C42, #FF5733);
+            transform: scale(1.05);
+        }
+    
+        #status {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #FFD700;
+        }
+    
+        .transcription-box {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            height: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            font-size: 16px;
+            font-weight: bold;
+            color: #87CEFA;
+            line-height: 1;
+            white-space: pre-wrap;
+        }
+    
+        .loading {
+            display: inline-block;
+            margin-left: 5px;
+            font-weight: bold;
+            animation: blink 1.5s infinite;
+        }
+    
+        .speak-button.waiting {
+            background: linear-gradient(135deg, #E87722, #FF5733);
+        }
+    
+        .speak-button.listening {
+            background: linear-gradient(135deg, #28a745, #218838);
+        }
+    
+        .speak-button.speaking {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+    
+        .speak-button.transcribing {
+            background: linear-gradient(135deg, #e79519, #8f611b);
+        }
+    
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    
+        .benny-img.talking {
+            animation: talk-bounce 0.35s infinite alternate;
+            box-shadow: 0 0 20px #ff6f61, 0 0 30px #ff6f61 inset;
+        }
+    
+        @keyframes talk-bounce {
+            0% { transform: scale(1) rotate(0deg); }
+            100% { transform: scale(1.03) rotate(1deg); }
+        }
+    </style>
+    
+    
+</head>
+<body>
+    <div class="overlay">
+        <div style="position: absolute; top: 20px; right: 30px;">
+    <a href="{% url 'logout' %}" style="
+        background-color: #dc3545;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 14px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    ">🚪 Logout</a>
+</div>
+
+    <div class="container">
+        <h1>Hey! I am Benny 🐻</h1>
+        {% load static %}
+        <img class="benny-img" src="{% static 'images/Benny.jpeg' %}" alt="Benny the Bear">
+
+        <br>
+        <button class="speak-button" id="recordBtn">🎤 Tap to Speak</button>
+        <p id="status">Waiting...</p>
+
+        <!-- Scrollable Box for Transcriptions -->
+        <div class="transcription-box" id="transcription"></div>
+
+        <!-- Hidden Audio Element -->
+        <audio id="audioPlayback" autoplay hidden></audio>
+    </div>
+</div>
+
+<script>
+    const recordBtn = document.getElementById('recordBtn');
+    const status = document.getElementById('status');
+    const transcriptionBox = document.getElementById('transcription');
+    const audioPlayback = document.getElementById('audioPlayback');
+    const bennyImg = document.querySelector('.benny-img');
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let stream;
+
+    function setButtonState(state) {
+        recordBtn.classList.remove("waiting", "listening", "transcribing", "speaking");
+        recordBtn.classList.add(state);
+    }
+
+    async function startRecording() {
+        recordBtn.disabled = true;
+        status.textContent = 'Listening...';
+        transcriptionBox.textContent = '';
+        setButtonState("listening");
+        bennyImg.classList.add("talking");
+
+        // Stop and reset any currently playing audio
+        if (!audioPlayback.paused) {
+            audioPlayback.pause();
+            audioPlayback.currentTime = 0;
+            audioPlayback.src = "";
+        }
+
+        // Start microphone recording
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.start();
+
+        mediaRecorder.addEventListener("dataavailable", event => {
+            audioChunks.push(event.data);
+        });
+    }
+
+    async function stopRecording() {
+        if (!mediaRecorder || mediaRecorder.state !== "recording") return;
+
+        mediaRecorder.stop();
+        stream.getTracks().forEach(track => track.stop());
+
+        mediaRecorder.addEventListener("stop", async () => {
+            status.textContent = 'Processing...';
+            setButtonState("transcribing");
+            bennyImg.classList.remove("talking");
+
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append("audio", audioBlob, "input.webm");
+
+            try {
+                const response = await fetch("/transcribe", {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                        "X-Session-ID": localStorage.getItem("sessionId") || crypto.randomUUID()
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to stream audio');
+
+                // Get transcription and response text from headers
+                const transcription = response.headers.get("X-Transcription") || "";
+                const responseText = response.headers.get("X-Response-Text") || "";
+
+                transcriptionBox.innerHTML = `
+                    <div><span style="color: #FFD700;">You:</span> ${transcription}</div>
+                    <div style="margin-top: 5px;"><span style="color: #00FA9A;">Benny:</span> ${responseText}</div>
+                `;
+
+                status.textContent = 'Speaking...';
+                setButtonState("speaking");
+                bennyImg.classList.add("talking");
+
+                // Stream audio using MediaSource API
+                const mimeCodec = 'audio/mpeg';
+                if (!MediaSource.isTypeSupported(mimeCodec)) {
+                    throw new Error("MPEG not supported in this browser.");
+                }
+
+                const mediaSource = new MediaSource();
+                audioPlayback.src = URL.createObjectURL(mediaSource);
+                audioPlayback.play();
+
+                mediaSource.addEventListener("sourceopen", async () => {
+                    const sourceBuffer = mediaSource.addSourceBuffer(mimeCodec);
+                    const reader = response.body.getReader();
+
+                    let queue = [];
+                    let appending = false;
+
+                    const appendFromQueue = () => {
+                        if (!queue.length || sourceBuffer.updating || appending) return;
+                        appending = true;
+                        sourceBuffer.appendBuffer(queue.shift());
+                    };
+
+                    sourceBuffer.addEventListener("updateend", () => {
+                        appending = false;
+                        appendFromQueue();
+                        if (!sourceBuffer.updating && queue.length === 0) {
+                            mediaSource.endOfStream();
+                        }
+                    });
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        queue.push(value);
+                        appendFromQueue();
+                    }
+                });
+
+                audioPlayback.onended = () => {
+                    setButtonState("waiting");
+                    bennyImg.classList.remove("talking");
+                    recordBtn.disabled = false;
+                    status.textContent = 'Waiting...';
+                };
+
+            } catch (error) {
+                console.error(error);
+                status.textContent = 'Error processing audio.';
+                transcriptionBox.textContent = '';
+                setButtonState("waiting");
+                bennyImg.classList.remove("talking");
+                recordBtn.disabled = false;
+            }
+        });
+    }
+
+    // Event listeners
+    recordBtn.onmousedown = startRecording;
+    recordBtn.onmouseup = stopRecording;
+    recordBtn.onmouseleave = stopRecording;
+
+    recordBtn.addEventListener("touchstart", e => {
+        e.preventDefault();
+        startRecording();
+    });
+
+    recordBtn.addEventListener("touchend", e => {
+        e.preventDefault();
+        stopRecording();
+    });
+
+    setButtonState("waiting");
+</script>
+
+
+    
+    
+</body>
+</html>

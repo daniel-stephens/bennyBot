@@ -1,0 +1,130 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Choose Location</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background: url("{% static 'images/morganbridge.jpeg' %}") no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+
+        .login-container {
+            background:  #063463; /* semi-transparent black */
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 400px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            width: 80%;
+            margin-top: 15px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 25px;
+            background-color: #E87722;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #FF8C42;
+        }
+
+        .error {
+            color: #FFCCCC;
+        }
+        .dropdown {
+    width: 85%;
+    padding: 12px;
+    margin-top: 15px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    background-color: #ffffffcc;
+    color: #333;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,<svg%20width%3D%2220%22%20height%3D%2220%22%20fill%3D%22%23333%22%20viewBox%3D%220%200%2020%2020%22%20xmlns%3D%22http://www.w3.org/2000/svg%22><path%20d%3D%22M5.5%207l4.5%204.5L14.5%207z%22/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+}
+
+.dropdown:focus {
+    outline: none;
+    box-shadow: 0 0 5px #ffb84d;
+}
+
+.input-box {
+    width: 85%;
+    padding: 12px;
+    margin-top: 15px;
+    border-radius: 8px;
+    border: none;
+    font-size: 16px;
+    background-color: #ffffffcc;
+    color: #333;
+}
+
+.input-box:focus {
+    outline: none;
+    box-shadow: 0 0 5px #ffb84d;
+}
+
+.divider {
+    margin: 12px 0;
+    font-size: 14px;
+    color: #ccc;
+}
+
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Welcome 👋</h2>
+        <p>Select a location </p>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <br>
+        
+            <!-- Custom Styled Dropdown -->
+            <select name="existing_location" id="existing_location" class="dropdown">
+                <option value="">-- Choose existing location --</option>
+                {% for loc in locations %}
+                    <option value="{{ loc.name }}">{{ loc.name }}</option>
+                {% endfor %}
+            </select>
+            <br><br>
+        
+
+        
+            <button type="submit">Start Session</button>
+        </form>
+        
+    </div>
+</body>
+</html>
